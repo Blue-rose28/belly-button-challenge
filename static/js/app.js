@@ -1,152 +1,215 @@
-const samples = "https://2u-data-curriculum-team.s3.amazonaws.com/dataviz-classroom/v1.1/14-Interactive-Web-Visualizations/02-Homework/samples.json";
+//########## BELLY BUTTON BIODIVERSITY DASHBOARD #############
+//############################################################
 
-//datapromise 
-const dataPromise = d3.json(samples);
-console.log("Data Promise: ", dataPromise);
+//###### Explores a Dataset with Interactive Charts ##########
 
-//load data
-d3.json(samples).then(function(data) {
-    const json_data = data
-    console.log(json_data); 
+// Set URL for Data Import
+const url = "https://2u-data-curriculum-team.s3.amazonaws.com/dataviz-classroom/v1.1/\
+14-Interactive-Web-Visualizations/02-Homework/samples.json";
+
+// Promise Pending
+const dataPromise = d3.json(url);
+console.log("Data Promise: ",dataPromise); 
+
+// Set Global Variable
+let user_choice;
+
+////////// FETCH JSON DATA & PLOT INTERACTIVE CHARTS /////////
+//////////////////////////////////////////////////////////////
+d3.json(url).then(function(data) {
     
-    //populate the dropdown list
-    create_dropdowns(json_data);
+    // Check Data in Console
+    console.log("Data: ", data);
+    
+    // Assign required data to variables
+    let names = data.names;
+    let samples = data.samples;
+    let metadata = data.metadata;
+    
+    // Make Object of Metadata for Easy Access
+    let metadataObject = metadata.map(metadatum =>({
+        'id': metadatum.id,
+        'ethnicity': metadatum.ethnicity,
+        'gender': metadatum.gender,
+        'age': metadatum.age,
+        'location': metadatum.location,
+        'bbtype': metadatum.bbtype,
+        'wfreq': metadatum.wfreq
+    }));
+    
+    // Check metadata
+    console.log('Metadata: ', metadataObject);
+
+    // Make Object of Sample Data for Easy Access
+    let sample_object = samples.map(sample => ({
+        'id': sample.id,
+        'otu_ids': sample.otu_ids,
+        'values': sample.sample_values,
+        'labels': sample.otu_labels
+    }));
+    
+    // Check Sample Object
+    console.log("Data Object: ", sample_object);
+    
+    // Check first ID
+    console.log('First ID: ', sample_object[0].id)
+    
+    // Check all IDs
+    console.log('All IDs: ', names)
+
+    // Call Dropdown Menu Function
+    makeMenu()
+
+    // Dropdown Menu Selection & Call getData Function
+    d3.selectAll("#selDataset").on("change", getData);
+    
+
+    //////////////////////// FUNCTIONS ///////////////////////////
+
+    ////////////// FUNCTION: Populate Dropdown Menu //////////////
+    //////////////////////////////////////////////////////////////
+    function makeMenu(){
+        
+        // Get reference to the Dropdown select element
+        let dropdownMenu = d3.select("#selDataset");
+      
+        // Use the Array of Sample Names to populate the menu options
+        let sampleIDs = names;
+      
+        // Append ID Array to Dropdown Menu
+        sampleIDs.forEach((id) => {
+        dropdownMenu
+          .append("option")
+          .text(id)
+          .property("value", id);
+    })};
+    
+    ///////////FUNCTION: DOM Changes & Plot Charts ////////////////
+    ///////////////////////////////////////////////////////////////
+    function getData(){
+      
+      // Select Dropdown Menu using D3
+      let dropdownMenu = d3.select("#selDataset");
+      
+      // Assign the chosen ID to a variable
+      user_choice = dropdownMenu.property("value");
+      
+      // Print the chosen id to the console
+      console.log("User Choice: ", user_choice);
+      
+      // Create variables for filtered data
+      let chartData = sample_object.find(field => field.id === user_choice);
+      let demographicData = metadataObject.find(field => field.id == user_choice);
+      
+      /////////////////// DEMOGRAPHIC INFO BOX //////////////////////
+      // Select Demographic Info Box
+      let demographicInfo = document.getElementById("sample-metadata");
+      
+      // Populate Demographic Info
+      let demoText = `<b>id:</b> ${demographicData.id}<br>\
+                      <b>ethnicity:</b> ${demographicData.ethnicity}<br>\
+                      <b>gender:</b> ${demographicData.gender}<br>\
+                      <b>age:</b> ${demographicData.age}<br>\
+                      <b>location:</b> ${demographicData.location}<br>\
+                      <b>bbtype:</b> ${demographicData.bbtype}<br>\
+                      <b>wfreq:</b> ${demographicData.wfreq}<br>`
+      
+      // Print Demographic Info to Demographic Info Box
+      demographicInfo.innerHTML = demoText;
+      
+      /////////////////// HORIZONTAL BAR CHART //////////////////////
+      // Set Trace for Horizontal Bar Chart 
+      let traceBar = {
+        x: chartData.values.slice(0,10).reverse(),
+        y: chartData.otu_ids.slice(0,10).map(id => `OTU ${id}`).reverse(),
+        text: chartData.labels.slice(0,10).reverse(),
+        type: "bar",
+        orientation: "h",
+        marker: {
+          color: '#f09664'
+        }
+      };
+  
+      // Set Bar Chart Data to Trace
+      let barData = [traceBar];
+
+      // Set Bar Chart Layout Parameters
+      let barLayout = {
+        title: `<b>Belly Button Flora</b> - Subject ${demographicData.id}`,
+        font: {size: 14},
+        margin: {pad: 5},
+      };
+  
+      // Plot Horizontal Bar Chart
+      Plotly.newPlot("bar", barData, barLayout);
+
+      //////////////////////// BUBBLE CHART /////////////////////////
+      // Set Trace for Bubble Chart
+      let traceBubble = {
+        type: "scatter",
+        mode: 'markers',
+        x: chartData.otu_ids,
+        y: chartData.values,
+        text: chartData.labels,
+        marker: {
+          color: chartData.otu_ids,      
+          size: chartData.values,
+          showscale: true
+        }
+      };
+      
+      // Set Bubble Chart Data to Trace
+      let bubbleData = [traceBubble];
+      
+      // Set Bubble Chart Layout Parameters
+      var bubbleLayout = {
+        title: `<b>Microbial Diversity</b> - Subject ${demographicData.id}`,
+        font: {size: 14},
+        showlegend: false,
+        height: 600,
+        width: 1150,
+        xaxis: {title: {text: "OTU IDs"}},
+        yaxis: {title: {text: "Sample Values"}}
+      };
+      
+      // Plot Bubble Chart
+      Plotly.newPlot("bubble", bubbleData, bubbleLayout);
+
+      //////////////////////// GAUGE CHART //////////////////////////
+      // Set Trace for Gauge Chart
+      let traceGauge = {
+          domain: { x: [0, 1], y: [0, 1] },
+          value: demographicData.wfreq,
+          title: { text: `<b>Belly Button Washing Frequency</b> <br>Scrubs Per Week`},
+          type: "indicator",
+          mode: "gauge+number",
+          gauge: { 
+            axis: { range: [null, 9] },
+            bar: { color: "#ffffff" },
+            steps: [
+              { range: [0, 1], color: '#ebceb7' },
+              { range: [1, 2], color: '#f6bf96' },
+              { range: [2, 3], color: '#f6ab7a' },
+              { range: [3, 4], color: '#f09664' },
+              { range: [4, 5], color: '#e57d57' },
+              { range: [5, 6], color: '#d7634a' },
+              { range: [6, 7], color: '#cd4b3a' },
+              { range: [7, 8], color: '#c02f2c' },
+              { range: [8, 9], color: '#b20d1c' },
+            ]}
+        };
+      
+      // Set Gauge Chart Data to Trace
+      let gaugeData = [traceGauge];
+
+      // Set Gauge Chart Layout Parameters
+      let gaugeLayout = { 
+        width: 515, 
+        height: 500, 
+        margin: { t: 0, b: 0} 
+      };
+        
+      // Plot Gauge Chart
+      Plotly.newPlot('gauge', gaugeData, gaugeLayout);
+    };
 });
-
-//populates the dropdown list with all the sample ID's
-function create_dropdowns(json_data) {
-    console.log(json_data);
-    let dropdownMenu = d3.select("#selDataset")
-    let names = json_data.names;
-    for(let i = 0; i < names.length; i++) {
-        dropdownMenu.append("option").text(names[i]).property("value", names[i]);
-    }
-    optionChanged("940");
-};
-
-
-// This function is called when a dropdown menu item is selected, it refreshed all the graphs
-function optionChanged(sample_id) {
-  //load data so we can work with it
-  d3.json(samples).then(function(data) {
-    const json_data = data
-    console.log(json_data); 
-  
-    //filter function to select the sample we want to work with
-    function id_filter(sample) {
-      return sample.id == sample_id;
-    }
-  
-    //assign sample data to variables and log
-    let sample_data = json_data["samples"].filter(id_filter)[0];
-    let sample_metadata = json_data["metadata"].filter(id_filter)[0];
-
-    //metadata table
-    //this function 'unzips' the metadata json so we can more easily work with it
-    //it also empties the demographics table
-    function unwrap(item) {
-
-      //delete previous data
-      let demo_table_rows = d3.selectAll("p");
-      demo_table_rows.remove();
-
-      //create array of strings with the info
-      let demographics = [];
-      for(var key in item) {
-        demographics.push(`${key}: ${item[key]}`);
-      }
-
-      return demographics;
-    }
-
-    //unwrap metadata into strings
-    let metadata = unwrap(sample_metadata);
-    //add new paragraph element for each line of metadata
-    for(let i=0; i < metadata.length; i++) {
-    let demographics = d3.select('#sample-metadata').append('p').text(metadata[i])
-    }
-    
-    //bar chart
-    //restructure, sort and slice data
-    let prepped_data = prep_sort(sample_data);
-    let sorted_by_sample_values = prepped_data.sort((a, b) => b.sample_values - a.sample_values);
-    let sample_values_slice = sorted_by_sample_values.slice(0,10);
-    sample_values_slice.reverse();
-    //create bar data
-    let horizontal_bar = [{
-      type: "bar",
-      x: sample_values_slice.map(item => item.sample_values),
-      y: sample_values_slice.map(item => `OTU ${item.otu_ids}`),
-      text: sample_values_slice.map(item => item.otu_labels),
-      orientation: 'h'
-    }];
-
-    //this 'unzips' the json data so the sort function will work properly on it
-    function prep_sort(dictionary) {
-      unzipped = [];
-      for(let i = 0; i < dictionary.sample_values.length; i++) {
-        let dict = {};
-        for(var key in dictionary) {
-          dict[key] = dictionary[key][i];
-        }
-        unzipped.push(dict);
-      }
-      return unzipped;
-    };
-
-    //add title
-    let bar_layout = {
-      title: 'Top 10 OTU\'s '
-    }
-
-    //plot the bar chart
-    Plotly.newPlot('bar', horizontal_bar, bar_layout, {responsive: true});
-
-    //bubble chart
-    let bubble = [{
-      x: sample_data.otu_ids,
-      y: sample_data.sample_values,
-      text: sample_data.otu_labels,
-      mode: 'markers',
-      marker: {
-        size: sample_data.sample_values,
-        color: sample_data.otu_ids,
-        colorscale: 'Earth'
-      }
-    }];
-
-    //add x-axis label
-    let bubble_layout = {
-      xaxis: {
-        title: {
-          text: "OTU ID"
-        }
-      },
-    };
-
-    //plot bubble
-    Plotly.newPlot('bubble', bubble, bubble_layout, {responsive: true});
-
-  //   //gauge - no way mate, way to much for a weekly challenge
-  //   var gauge_data = [
-  //     {
-  //       domain: { x: [0, 1], y: [0, 1] },
-  //       value: sample_metadata.wfreq,
-  //       title: { text: "Belly Button Washing Frequency" },
-  //       type: "indicator",
-  //       mode: "gauge+number",
-  //       gauge: {
-  //         axis: { range: [null, 9] },
-  //         steps: [
-  //           { range: [0, 1], color: "white" },
-  //           { range: [1, 2], color: "green" }
-  //         ],
-  //         bar: { color: "black"}
-  //     }
-  // }];
-    
-  //   var layout = { width: 600, height: 500, margin: { t: 0, b: 0 } };
-  //   Plotly.newPlot('gauge', gauge_data, layout, {responsive: true});
-
-  });
-}
